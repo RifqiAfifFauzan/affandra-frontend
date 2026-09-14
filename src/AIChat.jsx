@@ -715,16 +715,15 @@ export default function AIChat({ user }) {
                 +
               </button>
               
-              {/* TEXTAREA DENGAN AUTO-EXPAND DAN ENTER BARIS BARU */}
+              {/* TEXTAREA DENGAN AUTO-EXPAND & ENTER BARIS BARU MURNI */}
               <textarea 
                 ref={textareaRef}
                 value={input} 
                 onChange={handleTextareaInput} 
                 onPaste={handlePaste} 
                 onKeyDown={(e) => {
-                  // Jika tombol Enter ditekan TANPA Shift, biarkan membuat baris baru (tidak mengirim)
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    return; 
+                  if (e.key === 'Enter') {
+                    return; // Mencegah enter mengirim pesan di HP/laptop, murni turun baris
                   }
                 }}
                 rows={1}
