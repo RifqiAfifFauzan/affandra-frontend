@@ -42,3 +42,15 @@ body, html { margin: 0; padding: 0; height: 100vh; overflow: hidden; background-
 .ai-markdown li {
   margin-bottom: 6px; /* Jarak antar item di dalam list */
 }
+
+.chat-markdown-content {
+  overflow-x: auto;
+  max-width: 100%;
+  display: block;
+}
+
+.chat-markdown-content table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px; /* Sesuaikan agar lebih kecil di HP */
+}
