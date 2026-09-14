@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import vscDarkPlus from 'react-syntax-highlighter/dist/esm/styles/prism/vsc-dark-plus.js';
-import { supabase } from './supabaseClient'; //
+import { supabase } from './supabaseClient';
 
-export default function AIChat({ user }) { //[cite: 1]
+export default function AIChat({ user }) {
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [input, setInput] = useState('');
@@ -25,6 +25,22 @@ export default function AIChat({ user }) { //[cite: 1]
   const [hoveredSessionId, setHoveredSessionId] = useState(null);
   const [menuOpenId, setMenuOpenId] = useState(null);
 
+  // STATE UNTUK RESPONSIF MOBILE (SIDEBAR DRAWER)
+  const [isMobile, setIsMobile] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth >= 768) {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
   useEffect(() => {
     const handleClickOutside = () => setMenuOpenId(null);
     document.addEventListener('click', handleClickOutside);
@@ -34,7 +50,7 @@ export default function AIChat({ user }) { //[cite: 1]
   useEffect(() => {
     const fetchSessions = async () => {
       try {
-        const response = await fetch(`http://affandra-backend-q8xn5128w-affandra.vercel.app/api/sessions?userId=${user.id}`); //[cite: 1]
+        const response = await fetch(`http://affandra-backend-q8xn5128w-affandra.vercel.app/api/sessions?userId=${user.id}`);
         const data = await response.json();
         
         if (data && data.length > 0) {
@@ -51,7 +67,7 @@ export default function AIChat({ user }) { //[cite: 1]
       }
     };
     fetchSessions();
-  }, [user.id]); //[cite: 1]
+  }, [user.id]);
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -91,6 +107,7 @@ export default function AIChat({ user }) { //[cite: 1]
     const newSession = { id: newSessionId, title: 'Obrolan Baru', messages: [] };
     setSessions([newSession, ...sessions]);
     setActiveSessionId(newSessionId);
+    if (isMobile) setIsMobileSidebarOpen(false);
   };
 
   const saveRename = async (id) => {
@@ -210,7 +227,7 @@ export default function AIChat({ user }) { //[cite: 1]
     setIsLoading(true);
 
     const formData = new FormData();
-    formData.append('userId', user.id); //[cite: 1]
+    formData.append('userId', user.id);
     formData.append('message', messageText);
     formData.append('history', JSON.stringify(currentMessages));
     formData.append('sessionId', activeSessionId.toString());
@@ -250,15 +267,15 @@ export default function AIChat({ user }) { //[cite: 1]
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#121212', color: '#E0E0E0', fontFamily: 'system-ui, sans-serif', position: 'relative' }}>
+    <div style={{ display: 'flex', height: '100dvh', width: '100vw', overflow: 'hidden', backgroundColor: '#121212', color: '#E0E0E0', fontFamily: 'system-ui, sans-serif', position: 'relative' }}>
       
       {/* MODAL LIGHTBOX UNTUK ZOOM FOTO */}
       {modalImg && (
         <div 
           onClick={() => setModalImg(null)}
           style={{
-            position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-            backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 1000,
+            position: 'fixed', top: 0, left: 0, width: '100vw', height: '100dvh',
+            backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 2000,
             display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', cursor: 'zoom-out'
           }}
         >
@@ -278,9 +295,43 @@ export default function AIChat({ user }) { //[cite: 1]
         </div>
       )}
 
+      {/* BACKDROP UNTUK MOBILE SIDEBAR */}
+      {isMobile && isMobileSidebarOpen && (
+        <div 
+          onClick={() => setIsMobileSidebarOpen(false)}
+          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 999 }}
+        />
+      )}
+
       {/* SIDEBAR */}
-      <div style={{ width: '280px', backgroundColor: '#1A1A1A', padding: '16px', display: 'flex', flexDirection: 'column', borderRight: '1px solid #2A2A2A', boxSizing: 'border-box' }}>
+      <div style={{ 
+        width: '280px', 
+        backgroundColor: '#1A1A1A', 
+        padding: '16px', 
+        display: isMobile ? (isMobileSidebarOpen ? 'flex' : 'none') : 'flex', 
+        flexDirection: 'column', 
+        borderRight: '1px solid #2A2A2A', 
+        boxSizing: 'border-box',
+        position: isMobile ? 'fixed' : 'relative',
+        top: 0,
+        left: 0,
+        height: '100dvh',
+        zIndex: 1000,
+        boxShadow: isMobile ? '4px 0 20px rgba(0,0,0,0.5)' : 'none'
+      }}>
         
+        {/* Tombol Tutup Sidebar Khusus Mobile */}
+        {isMobile && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+            <button 
+              onClick={() => setIsMobileSidebarOpen(false)}
+              style={{ background: 'none', border: 'none', color: '#aaa', fontSize: '18px', cursor: 'pointer', padding: '4px' }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Tombol New Chat */}
         <button onClick={createNewChat} style={{ width: '100%', padding: '12px', marginBottom: '20px', borderRadius: '8px', backgroundColor: '#2A2A2A', color: '#fff', border: '1px solid #444', cursor: 'pointer', fontWeight: 'bold' }}>
           ➕ New Chat
@@ -298,6 +349,7 @@ export default function AIChat({ user }) { //[cite: 1]
               onClick={() => {
                 setActiveSessionId(session.id);
                 setEditingId(null);
+                if (isMobile) setIsMobileSidebarOpen(false);
               }} 
               style={{ 
                 position: 'relative', 
@@ -398,29 +450,41 @@ export default function AIChat({ user }) { //[cite: 1]
       </div>
 
       {/* MAIN CHAT AREA */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100dvh', width: '100%', overflow: 'hidden' }}>
         
         {/* HEADER */}
-        <div style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #1A1A1A' }}>
-          <div style={{ width: '120px' }}></div> 
-          <h2 style={{ margin: 0, fontFamily: 'Georgia, serif', color: '#f3ece5', fontSize: '22px', fontWeight: 'normal' }}>Affandra</h2>
-          <div style={{ width: '120px', textAlign: 'right', fontSize: '12px', color: '#888', fontWeight: 'bold' }}>
-            ⚡ Sisa Kuota: {remainingLimit}
+        <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #1A1A1A' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '80px' }}>
+            {isMobile && (
+              <button 
+                onClick={() => setIsMobileSidebarOpen(true)}
+                style={{ background: 'none', border: 'none', color: '#fff', fontSize: '20px', cursor: 'pointer', padding: '0' }}
+                title="Buka Menu"
+              >
+                ☰
+              </button>
+            )}
+          </div> 
+          
+          <h2 style={{ margin: 0, fontFamily: 'Georgia, serif', color: '#f3ece5', fontSize: '20px', fontWeight: 'normal', textAlign: 'center' }}>Affandra</h2>
+          
+          <div style={{ minWidth: '80px', textAlign: 'right', fontSize: '11px', color: '#888', fontWeight: 'bold' }}>
+            ⚡ Sisa: {remainingLimit}
           </div>
         </div>
 
         {/* MESSAGES LIST */}
-        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
           <div style={{ width: '100%', maxWidth: '680px' }}>
             {(!activeSession?.messages || activeSession.messages.length === 0) && (
-              <div style={{ textAlign: 'center', color: '#555', marginTop: '20vh' }}>Ketik sesuatu atau unggah file untuk memulai...</div>
+              <div style={{ textAlign: 'center', color: '#555', marginTop: '15vh', fontSize: '14px', padding: '0 20px' }}>Ketik sesuatu atau unggah file untuk memulai...</div>
             )}
             
             {(activeSession?.messages || []).map((msg, index) => {
               const textContent = msg.parts?.[0]?.text || '';
               
               return (
-                <div key={index} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: '24px', width: '100%' }}>
+                <div key={index} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: '20px', width: '100%' }}>
                   <div style={{ 
                     background: msg.role === 'user' ? '#2A2A2A' : 'transparent', 
                     color: '#E0E0E0', 
@@ -486,8 +550,15 @@ export default function AIChat({ user }) { //[cite: 1]
           </div>
         </div>
 
-        {/* INPUT AREA (MODERN ROUNDED CAPSULE STYLE) */}
-        <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#121212' }}>
+        {/* INPUT AREA (MODERN ROUNDED CAPSULE STYLE DENGAN SAFE AREA) */}
+        <div style={{ 
+          padding: '16px 20px', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          backgroundColor: '#121212',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)'
+        }}>
           <div style={{ width: '100%', maxWidth: '680px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             
             {selectedFile && (
@@ -522,7 +593,7 @@ export default function AIChat({ user }) { //[cite: 1]
               {/* Tombol Plus (+) */}
               <button 
                 onClick={() => fileInputRef.current.click()} 
-                style={{ background: '#2A2A2A', border: 'none', color: '#aaa', width: '32px', height: '32px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s' }} 
+                style={{ background: '#2A2A2A', border: 'none', color: '#aaa', width: '32px', height: '32px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s', flexShrink: 0 }} 
                 title="Unggah Gambar atau PDF"
               >
                 +
@@ -540,15 +611,17 @@ export default function AIChat({ user }) { //[cite: 1]
                   }
                 }}
                 rows={1}
-                style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: '#fff', padding: '8px', fontSize: '15px', resize: 'none', fontFamily: 'system-ui, sans-serif' }} 
-                placeholder="Tanyakan sesuatu atau unggah dokumen (bisa langsung Ctrl+V foto)..." 
+                style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: '#fff', padding: '8px', fontSize: '15px', resize: 'none', fontFamily: 'system-ui, sans-serif', minWidth: '0' }} 
+                placeholder="Tanyakan sesuatu..." 
               />
               
               {/* Bagian Kanan: Label Model, Mikrofon, dan Tombol Kirim */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '12px', color: '#888', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', userSelect: 'none' }}>
-                  Flash-Lite Mendalam ▾
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                {!isMobile && (
+                  <span style={{ fontSize: '12px', color: '#888', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', userSelect: 'none' }}>
+                    Flash-Lite Mendalam ▾
+                  </span>
+                )}
 
                 <button style={{ background: 'none', border: 'none', color: '#888', fontSize: '16px', cursor: 'pointer', padding: '4px' }} title="Input Suara">
                   🎤
@@ -561,7 +634,7 @@ export default function AIChat({ user }) { //[cite: 1]
                     width: '32px', height: '32px', borderRadius: '50%', 
                     cursor: (isLoading || (!input.trim() && !selectedFile)) ? 'not-allowed' : 'pointer', 
                     backgroundColor: (isLoading || (!input.trim() && !selectedFile)) ? '#333' : '#3B82F6', 
-                    color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', transition: '0.2s' 
+                    color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', transition: '0.2s', flexShrink: 0
                   }}
                   title="Kirim"
                 >
@@ -572,6 +645,7 @@ export default function AIChat({ user }) { //[cite: 1]
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );
