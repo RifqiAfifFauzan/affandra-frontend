@@ -17,7 +17,7 @@ const CodeBlock = ({ node, inline, className, children, ...props }) => {
   const handleCopyCode = () => {
     navigator.clipboard.writeText(codeString);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000); // Reset tulisan setelah 2 detik
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return !inline && match ? (
@@ -73,7 +73,7 @@ export default function AIChat({ user }) {
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const textareaRef = useRef(null); // Ref untuk auto-expand textbox
+  const textareaRef = useRef(null); 
   const abortControllerRef = useRef(null);
 
   const [editingId, setEditingId] = useState(null);
@@ -81,14 +81,16 @@ export default function AIChat({ user }) {
   const [hoveredSessionId, setHoveredSessionId] = useState(null);
   const [menuOpenId, setMenuOpenId] = useState(null);
 
-  // STATE UNTUK RESPONSIF MOBILE (SIDEBAR DRAWER)
+  // STATE UNTUK RESPONSIF MOBILE & DETEKSI PERANGKAT
   const [isMobile, setIsMobile] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     const checkScreenSize = () => {
-      setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth >= 768) {
+      // Deteksi berdasarkan lebar layar atau sentuhan perangkat
+      const mobileCheck = window.innerWidth < 768 || 'ontouchstart' in window;
+      setIsMobile(mobileCheck);
+      if (window.innerWidth >= 768 && !('ontouchstart' in window)) {
         setIsMobileSidebarOpen(false);
       }
     };
@@ -262,7 +264,6 @@ export default function AIChat({ user }) {
     ));
   };
 
-  // Fungsi Auto-expand Textarea
   const handleTextareaInput = (e) => {
     setInput(e.target.value);
     if (textareaRef.current) {
@@ -300,7 +301,7 @@ export default function AIChat({ user }) {
     
     setInput('');
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'; // Reset tinggi textarea setelah kirim
+      textareaRef.current.style.height = 'auto'; 
     }
     setIsLoading(true);
 
@@ -542,7 +543,7 @@ export default function AIChat({ user }) {
       {/* MAIN CHAT AREA */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100dvh', width: '100%', overflow: 'hidden', backgroundColor: '#0f0f0f' }}>
         
-        {/* TOP HEADER (SISA KUOTA SUDAH DIHAPUS TOTAL) */}
+        {/* TOP HEADER */}
         <div style={{ 
           padding: '14px 20px', 
           paddingTop: 'calc(env(safe-area-inset-top, 0px) + 14px)', 
@@ -566,7 +567,7 @@ export default function AIChat({ user }) {
           
           <h2 style={{ margin: 0, fontFamily: 'Georgia, serif', color: '#f4f4f5', fontSize: '18px', fontWeight: 'normal', letterSpacing: '0.5px', textAlign: 'center' }}>Affandra</h2>
           
-          <div style={{ minWidth: '40px' }}></div> {/* Spacer penyeimbang */}
+          <div style={{ minWidth: '40px' }}></div>
         </div>
 
         {/* CHAT MESSAGES SCROLL CONTAINER */}
@@ -710,12 +711,12 @@ export default function AIChat({ user }) {
                 style={{ background: '#27272a', border: 'none', color: '#a1a1aa', width: '34px', height: '34px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s', flexShrink: 0, marginBottom: '2px' }} 
                 title="Unggah Gambar atau PDF"
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#3f3f46'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#27272a'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#3f3f46'}
               >
                 +
               </button>
               
-              {/* TEXTAREA DENGAN AUTO-EXPAND & ENTER BARIS BARU MURNI */}
+              {/* TEXTAREA: ENTER KIRIM DI PC, ENTER TURUN BARIS DI HP */}
               <textarea 
                 ref={textareaRef}
                 value={input} 
@@ -723,7 +724,16 @@ export default function AIChat({ user }) {
                 onPaste={handlePaste} 
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    return; // Mencegah enter mengirim pesan di HP/laptop, murni turun baris
+                    if (isMobile) {
+                      // Jika di HP, biarkan Enter murni turun baris (newline)
+                      return;
+                    } else {
+                      // Jika di PC/Laptop, tekan Enter langsung kirim (kecuali tahan Shift)
+                      if (!e.shiftKey) {
+                        e.preventDefault();
+                        if (!isLoading) sendMessage();
+                      }
+                    }
                   }
                 }}
                 rows={1}
