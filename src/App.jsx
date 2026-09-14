@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import Auth from './auth';
+import Auth from './Auth';
 import AIChat from './AIChat';
 
 export default function App() {
