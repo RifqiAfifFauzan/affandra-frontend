@@ -8,6 +8,57 @@ import { supabase } from './supabaseClient';
 // URL backend produksi Vercel
 const BACKEND_URL = 'https://affandra-backend.vercel.app';
 
+// Komponen Kustom untuk Blok Kode dengan Tombol Copy
+const CodeBlock = ({ node, inline, className, children, ...props }) => {
+  const [copied, setCopied] = useState(false);
+  const match = /language-(\w+)/.exec(className || '');
+  const codeString = String(children).replace(/\n$/, '');
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(codeString);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000); // Reset tulisan setelah 2 detik
+  };
+
+  return !inline && match ? (
+    <div style={{ position: 'relative', margin: '16px 0', borderRadius: '10px', overflow: 'hidden', border: '1px solid #27272a', backgroundColor: '#121214' }}>
+      <div style={{ backgroundColor: '#1a1a1e', padding: '8px 16px', fontSize: '12px', color: '#a1a1aa', borderBottom: '1px solid #27272a', fontWeight: '600', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>{match[1].toUpperCase()}</span>
+        <button
+          onClick={handleCopyCode}
+          style={{
+            background: '#27272a',
+            color: '#fff',
+            border: '1px solid #3f3f46',
+            borderRadius: '4px',
+            padding: '2px 8px',
+            fontSize: '11px',
+            cursor: 'pointer',
+            transition: 'background 0.2s'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#3f3f46'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#27272a'}
+        >
+          {copied ? 'Copied! ✓' : 'Copy'}
+        </button>
+      </div>
+      <SyntaxHighlighter
+        style={vscDarkPlus}
+        language={match[1]}
+        PreTag="div"
+        customStyle={{ margin: 0, padding: '16px', backgroundColor: '#0f0f0f', fontSize: '14px' }}
+        {...props}
+      >
+        {codeString}
+      </SyntaxHighlighter>
+    </div>
+  ) : (
+    <code style={{ backgroundColor: '#27272a', padding: '2px 6px', borderRadius: '4px', fontSize: '13px', color: '#f472b6' }} {...props}>
+      {children}
+    </code>
+  );
+};
+
 export default function AIChat({ user }) {
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
@@ -20,9 +71,9 @@ export default function AIChat({ user }) {
   const [modalImg, setModalImg] = useState(null);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [remainingLimit, setRemainingLimit] = useState('-');
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const textareaRef = useRef(null); // Ref untuk auto-expand textbox
   const abortControllerRef = useRef(null);
 
   const [editingId, setEditingId] = useState(null);
@@ -211,6 +262,15 @@ export default function AIChat({ user }) {
     ));
   };
 
+  // Fungsi Auto-expand Textarea
+  const handleTextareaInput = (e) => {
+    setInput(e.target.value);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 130)}px`;
+    }
+  };
+
   const sendMessage = async (textToSend) => {
     const messageText = typeof textToSend === 'string' ? textToSend : input;
     if (!messageText.trim() && !selectedFile) return;
@@ -239,6 +299,9 @@ export default function AIChat({ user }) {
     ));
     
     setInput('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'; // Reset tinggi textarea setelah kirim
+    }
     setIsLoading(true);
 
     const controller = new AbortController();
@@ -268,10 +331,6 @@ export default function AIChat({ user }) {
 
       const data = await response.json();
       const aiReply = response.ok ? data.reply : `⚠️ Error: ${data.error}`;
-
-      if (data.limit) {
-        setRemainingLimit(data.limit);
-      }
 
       setSessions(prev => prev.map(s => 
         s.id === activeSessionId ? { ...s, messages: [...newMessages, { role: 'model', parts: [{ text: aiReply }] }] } : s
@@ -483,7 +542,7 @@ export default function AIChat({ user }) {
       {/* MAIN CHAT AREA */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100dvh', width: '100%', overflow: 'hidden', backgroundColor: '#0f0f0f' }}>
         
-        {/* TOP HEADER */}
+        {/* TOP HEADER (SISA KUOTA SUDAH DIHAPUS TOTAL) */}
         <div style={{ 
           padding: '14px 20px', 
           paddingTop: 'calc(env(safe-area-inset-top, 0px) + 14px)', 
@@ -507,9 +566,7 @@ export default function AIChat({ user }) {
           
           <h2 style={{ margin: 0, fontFamily: 'Georgia, serif', color: '#f4f4f5', fontSize: '18px', fontWeight: 'normal', letterSpacing: '0.5px', textAlign: 'center' }}>Affandra</h2>
           
-          <div style={{ minWidth: '80px', textAlign: 'right', fontSize: '11px', color: '#a1a1aa', fontWeight: '500', background: '#27272a', padding: '4px 8px', borderRadius: '12px' }}>
-            ⚡ Sisa: {remainingLimit}
-          </div>
+          <div style={{ minWidth: '40px' }}></div> {/* Spacer penyeimbang */}
         </div>
 
         {/* CHAT MESSAGES SCROLL CONTAINER */}
@@ -589,29 +646,7 @@ export default function AIChat({ user }) {
                             li({ children }) {
                               return <li style={{ marginBottom: '4px' }}>{children}</li>;
                             },
-                            code({ node, inline, className, children, ...props }) {
-                              const match = /language-(\w+)/.exec(className || '');
-                              return !inline && match ? (
-                                <div style={{ margin: '16px 0', borderRadius: '10px', overflow: 'hidden', border: '1px solid #27272a', backgroundColor: '#121214' }}>
-                                  <div style={{ backgroundColor: '#1a1a1e', padding: '8px 16px', fontSize: '12px', color: '#a1a1aa', borderBottom: '1px solid #27272a', fontWeight: '600' }}>
-                                    {match[1].toUpperCase()}
-                                  </div>
-                                  <SyntaxHighlighter
-                                    style={vscDarkPlus}
-                                    language={match[1]}
-                                    PreTag="div"
-                                    customStyle={{ margin: 0, padding: '16px', backgroundColor: '#0f0f0f', fontSize: '14px' }}
-                                    {...props}
-                                  >
-                                    {String(children).replace(/\n$/, '')}
-                                  </SyntaxHighlighter>
-                                </div>
-                              ) : (
-                                <code style={{ backgroundColor: '#27272a', padding: '2px 6px', borderRadius: '4px', fontSize: '13px', color: '#f472b6' }} {...props}>
-                                  {children}
-                                </code>
-                              );
-                            }
+                            code: CodeBlock
                           }}
                         >
                           {textContent}
@@ -667,12 +702,12 @@ export default function AIChat({ user }) {
               </div>
             )}
 
-            <div style={{ display: 'flex', backgroundColor: '#18181b', borderRadius: '24px', border: '1px solid #27272a', padding: '8px 14px', alignItems: 'center', gap: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+            <div style={{ display: 'flex', backgroundColor: '#18181b', borderRadius: '24px', border: '1px solid #27272a', padding: '8px 14px', alignItems: 'flex-end', gap: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg, application/pdf" style={{ display: 'none' }} />
               
               <button 
                 onClick={() => fileInputRef.current.click()} 
-                style={{ background: '#27272a', border: 'none', color: '#a1a1aa', width: '34px', height: '34px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s', flexShrink: 0 }} 
+                style={{ background: '#27272a', border: 'none', color: '#a1a1aa', width: '34px', height: '34px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s', flexShrink: 0, marginBottom: '2px' }} 
                 title="Unggah Gambar atau PDF"
                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#3f3f46'}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#27272a'}
@@ -680,28 +715,38 @@ export default function AIChat({ user }) {
                 +
               </button>
               
+              {/* TEXTAREA DENGAN AUTO-EXPAND DAN ENTER BARIS BARU */}
               <textarea 
+                ref={textareaRef}
                 value={input} 
-                onChange={(e) => setInput(e.target.value)} 
+                onChange={handleTextareaInput} 
                 onPaste={handlePaste} 
                 onKeyDown={(e) => {
+                  // Jika tombol Enter ditekan TANPA Shift, biarkan membuat baris baru (tidak mengirim)
                   if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    if (!isLoading) sendMessage();
+                    return; 
                   }
                 }}
                 rows={1}
-                style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: '#fff', padding: '8px', fontSize: '15px', resize: 'none', fontFamily: 'system-ui, sans-serif', minWidth: '0' }} 
+                style={{ 
+                  flex: 1, 
+                  background: 'transparent', 
+                  border: 'none', 
+                  outline: 'none', 
+                  color: '#fff', 
+                  padding: '8px 0', 
+                  fontSize: '15px', 
+                  resize: 'none', 
+                  fontFamily: 'system-ui, sans-serif', 
+                  minWidth: '0',
+                  maxHeight: '130px',
+                  overflowY: 'auto',
+                  lineHeight: '1.4'
+                }} 
                 placeholder="Tanyakan sesuatu pada Affandra..." 
               />
               
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                {!isMobile && (
-                  <span style={{ fontSize: '12px', color: '#71717a', display: 'flex', alignItems: 'center', gap: '4px', userSelect: 'none' }}>
-                    Flash-Lite ▾
-                  </span>
-                )}
-
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, marginBottom: '2px' }}>
                 {isLoading ? (
                   <button 
                     onClick={stopGeneration}
