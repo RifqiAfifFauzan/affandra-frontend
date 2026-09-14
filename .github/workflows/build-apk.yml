@@ -2,7 +2,7 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ "main" ] # Sesuaikan dengan branch utama git kamu (main / master)
+    branches: [ "main" ] # Ganti "main" dengan "master" jika branch utamamu master
 
 jobs:
   build:
@@ -19,7 +19,6 @@ jobs:
 
     - name: Install Dependencies & Build Frontend
       run: |
-        cd affandra-frontend
         npm install
         npm run build
 
@@ -34,12 +33,12 @@ jobs:
 
     - name: Build Debug APK with Gradle
       run: |
-        cd affandra-frontend/android
+        cd android
         chmod +x gradlew
         ./gradlew assembleDebug
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: affandra1.0-apk
-        path: affandra-frontend/android/app/build/outputs/apk/debug/app-debug.apk
+        name: app-debug-apk
+        path: android/app/build/outputs/apk/debug/app-debug.apk
