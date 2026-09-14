@@ -1,5 +1,9 @@
 {
   "appId": "com.affandra.app",
   "appName": "Affandra",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "url": "https://affandra-frontend.vercel.app",
+    "cleartext": true
+  }
 }
