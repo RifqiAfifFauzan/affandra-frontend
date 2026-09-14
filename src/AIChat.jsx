@@ -4,6 +4,9 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import vscDarkPlus from 'react-syntax-highlighter/dist/esm/styles/prism/vsc-dark-plus.js';
 import { supabase } from './supabaseClient';
 
+// Ubah ke URL domain produksi Vercel backend-mu yang aktif dan bersih
+const BACKEND_URL = 'https://affandra-backend.vercel.app';
+
 export default function AIChat({ user }) {
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
@@ -19,6 +22,7 @@ export default function AIChat({ user }) {
   const [remainingLimit, setRemainingLimit] = useState('-');
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const abortControllerRef = useRef(null);
 
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
@@ -50,7 +54,7 @@ export default function AIChat({ user }) {
   useEffect(() => {
     const fetchSessions = async () => {
       try {
-        const response = await fetch(`http://affandra-backend-q8xn5128w-affandra.vercel.app/api/sessions?userId=${user.id}`);
+        const response = await fetch(`${BACKEND_URL}/api/sessions?userId=${user.id}`);
         const data = await response.json();
         
         if (data && data.length > 0) {
@@ -73,7 +77,7 @@ export default function AIChat({ user }) {
     const fetchMessages = async () => {
       if (!activeSessionId) return;
       try {
-        const response = await fetch(`http://affandra-backend-q8xn5128w-affandra.vercel.app/api/sessions/${activeSessionId}/messages`);
+        const response = await fetch(`${BACKEND_URL}/api/sessions/${activeSessionId}/messages`);
         const data = await response.json();
         
         const formattedMessages = (data || []).map(msg => ({
@@ -119,7 +123,7 @@ export default function AIChat({ user }) {
     const sessionToEdit = sessions.find(s => s.id === id);
     if (sessionToEdit && sessionToEdit.title !== editTitle && sessionToEdit.title !== 'Obrolan Baru') {
       try {
-        await fetch(`http://affandra-backend-q8xn5128w-affandra.vercel.app/api/sessions/${id}`, {
+        await fetch(`${BACKEND_URL}/api/sessions/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: editTitle })
@@ -141,7 +145,7 @@ export default function AIChat({ user }) {
     try {
       const sessionToDelete = sessions.find(s => s.id === id);
       if (sessionToDelete && sessionToDelete.title !== 'Obrolan Baru') {
-        await fetch(`http://affandra-backend-q8xn5128w-affandra.vercel.app/api/sessions/${id}`, { method: 'DELETE' });
+        await fetch(`${BACKEND_URL}/api/sessions/${id}`, { method: 'DELETE' });
       }
       
       const updatedSessions = sessions.filter(s => s.id !== id);
@@ -196,6 +200,16 @@ export default function AIChat({ user }) {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const stopGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    setIsLoading(false);
+    setSessions(prev => prev.map(s => 
+      s.id === activeSessionId ? { ...s, messages: [...s.messages, { role: 'model', parts: [{ text: "⚠️ Respon dihentikan oleh pengguna." }] }] } : s
+    ));
+  };
+
   const sendMessage = async (textToSend) => {
     const messageText = typeof textToSend === 'string' ? textToSend : input;
     if (!messageText.trim() && !selectedFile) return;
@@ -226,11 +240,14 @@ export default function AIChat({ user }) {
     setInput('');
     setIsLoading(true);
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     const formData = new FormData();
     formData.append('userId', user.id);
     formData.append('message', messageText);
     formData.append('history', JSON.stringify(currentMessages));
-    formData.append('sessionId', activeSessionId.toString());
+    formData.append('sessionId', activeSessionId ? activeSessionId.toString() : '');
     formData.append('sessionTitle', sessionTitle);
 
     if (currentFile) {
@@ -242,9 +259,10 @@ export default function AIChat({ user }) {
     if (fileInputRef.current) fileInputRef.current.value = '';
 
     try {
-      const response = await fetch('http://affandra-backend-q8xn5128w-affandra.vercel.app/api/chat', {
+      const response = await fetch(`${BACKEND_URL}/api/chat`, {
         method: 'POST',
-        body: formData 
+        body: formData,
+        signal: controller.signal
       });
 
       const data = await response.json();
@@ -258,11 +276,16 @@ export default function AIChat({ user }) {
         s.id === activeSessionId ? { ...s, messages: [...newMessages, { role: 'model', parts: [{ text: aiReply }] }] } : s
       ));
     } catch (error) {
-      setSessions(prev => prev.map(s => 
-        s.id === activeSessionId ? { ...s, messages: [...newMessages, { role: 'model', parts: [{ text: "⚠️ Gagal terhubung ke server backend." }] }] } : s
-      ));
+      if (error.name === 'AbortError') {
+        console.log("Fetch dibatalkan oleh pengguna.");
+      } else {
+        setSessions(prev => prev.map(s => 
+          s.id === activeSessionId ? { ...s, messages: [...newMessages, { role: 'model', parts: [{ text: "⚠️ Gagal terhubung ke server backend." }] }] } : s
+        ));
+      }
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -320,7 +343,6 @@ export default function AIChat({ user }) {
         boxShadow: isMobile ? '4px 0 20px rgba(0,0,0,0.5)' : 'none'
       }}>
         
-        {/* Tombol Tutup Sidebar Khusus Mobile */}
         {isMobile && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
             <button 
@@ -332,12 +354,10 @@ export default function AIChat({ user }) {
           </div>
         )}
 
-        {/* Tombol New Chat */}
         <button onClick={createNewChat} style={{ width: '100%', padding: '12px', marginBottom: '20px', borderRadius: '8px', backgroundColor: '#2A2A2A', color: '#fff', border: '1px solid #444', cursor: 'pointer', fontWeight: 'bold' }}>
           ➕ New Chat
         </button>
 
-        {/* Daftar Riwayat Chat */}
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ fontSize: '12px', color: '#666', fontWeight: 'bold', marginBottom: '8px' }}>RIWAYAT CHAT</div>
           
@@ -433,7 +453,6 @@ export default function AIChat({ user }) {
           ))}
         </div>
 
-        {/* PROFIL & TOMBOL LOGOUT DI BAWAH SIDEBAR */}
         <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #2A2A2A', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ fontSize: '12px', color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '170px' }} title={user?.email}>
             👤 {user?.email || 'Pengguna'}
@@ -452,8 +471,15 @@ export default function AIChat({ user }) {
       {/* MAIN CHAT AREA */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100dvh', width: '100%', overflow: 'hidden' }}>
         
-        {/* HEADER */}
-        <div style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #1A1A1A' }}>
+        <div style={{ 
+          padding: '16px 20px', 
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          borderBottom: '1px solid #1A1A1A',
+          backgroundColor: '#121212'
+        }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '80px' }}>
             {isMobile && (
               <button 
@@ -473,7 +499,6 @@ export default function AIChat({ user }) {
           </div>
         </div>
 
-        {/* MESSAGES LIST */}
         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box' }}>
           <div style={{ width: '100%', maxWidth: '680px' }}>
             {(!activeSession?.messages || activeSession.messages.length === 0) && (
@@ -550,7 +575,6 @@ export default function AIChat({ user }) {
           </div>
         </div>
 
-        {/* INPUT AREA (MODERN ROUNDED CAPSULE STYLE DENGAN SAFE AREA) */}
         <div style={{ 
           padding: '16px 20px', 
           display: 'flex', 
@@ -586,11 +610,9 @@ export default function AIChat({ user }) {
               </div>
             )}
 
-            {/* Input Box Melengkung Modern */}
             <div style={{ display: 'flex', backgroundColor: '#1E1E1E', borderRadius: '24px', border: '1px solid #333', padding: '8px 14px', alignItems: 'center', gap: '8px' }}>
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg, application/pdf" style={{ display: 'none' }} />
               
-              {/* Tombol Plus (+) */}
               <button 
                 onClick={() => fileInputRef.current.click()} 
                 style={{ background: '#2A2A2A', border: 'none', color: '#aaa', width: '32px', height: '32px', borderRadius: '50%', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.2s', flexShrink: 0 }} 
@@ -599,7 +621,6 @@ export default function AIChat({ user }) {
                 +
               </button>
               
-              {/* Textarea */}
               <textarea 
                 value={input} 
                 onChange={(e) => setInput(e.target.value)} 
@@ -607,7 +628,7 @@ export default function AIChat({ user }) {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    sendMessage();
+                    if (!isLoading) sendMessage();
                   }
                 }}
                 rows={1}
@@ -615,7 +636,6 @@ export default function AIChat({ user }) {
                 placeholder="Tanyakan sesuatu..." 
               />
               
-              {/* Bagian Kanan: Label Model, Mikrofon, dan Tombol Kirim */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                 {!isMobile && (
                   <span style={{ fontSize: '12px', color: '#888', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', userSelect: 'none' }}>
@@ -627,19 +647,34 @@ export default function AIChat({ user }) {
                   🎤
                 </button>
 
-                <button 
-                  onClick={() => sendMessage()} 
-                  disabled={isLoading || (!input.trim() && !selectedFile)} 
-                  style={{ 
-                    width: '32px', height: '32px', borderRadius: '50%', 
-                    cursor: (isLoading || (!input.trim() && !selectedFile)) ? 'not-allowed' : 'pointer', 
-                    backgroundColor: (isLoading || (!input.trim() && !selectedFile)) ? '#333' : '#3B82F6', 
-                    color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', transition: '0.2s', flexShrink: 0
-                  }}
-                  title="Kirim"
-                >
-                  ↑
-                </button>
+                {isLoading ? (
+                  <button 
+                    onClick={stopGeneration}
+                    style={{ 
+                      width: '32px', height: '32px', borderRadius: '50%', 
+                      backgroundColor: '#EF4444', color: '#fff', border: 'none', 
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                      cursor: 'pointer', transition: '0.2s', fontSize: '12px', flexShrink: 0 
+                    }}
+                    title="Hentikan Respon"
+                  >
+                    ⏹
+                  </button>
+                ) : (
+                  <button 
+                    onClick={() => sendMessage()} 
+                    disabled={!input.trim() && !selectedFile} 
+                    style={{ 
+                      width: '32px', height: '32px', borderRadius: '50%', 
+                      cursor: (!input.trim() && !selectedFile) ? 'not-allowed' : 'pointer', 
+                      backgroundColor: (!input.trim() && !selectedFile) ? '#333' : '#3B82F6', 
+                      color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', transition: '0.2s', flexShrink: 0 
+                    }}
+                    title="Kirim"
+                  >
+                    ↑
+                  </button>
+                )}
               </div>
 
             </div>
