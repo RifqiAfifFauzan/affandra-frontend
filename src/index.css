@@ -1,0 +1,44 @@
+* { box-sizing: border-box; }
+body, html { margin: 0; padding: 0; height: 100vh; overflow: hidden; background-color: #121212; }
+
+/* Mengatur ukuran dan warna dasar scrollbar */
+::-webkit-scrollbar {
+  height: 8px; /* Tinggi untuk scrollbar horizontal (geser kiri-kanan) */
+  width: 8px;  /* Lebar untuk scrollbar vertikal (geser atas-bawah) */
+}
+
+/* Mengatur jalur lintasan scrollbar (background) */
+::-webkit-scrollbar-track {
+  background: transparent; /* Dibuat transparan agar menyatu dengan warna background aplikasimu */
+}
+
+/* Mengatur pegangan scrollbar (thumb) */
+::-webkit-scrollbar-thumb {
+  background: #4a4a4a; /* Warna abu-abu gelap persis seperti di gambarmu */
+  border-radius: 10px; /* Membuat ujungnya membulat mulus */
+}
+
+/* Efek saat scrollbar disorot mouse (hover) */
+::-webkit-scrollbar-thumb:hover {
+  background: #666666; /* Sedikit lebih terang agar interaktif */
+}
+
+/* Merapikan jarak spasi pada balasan AI (ReactMarkdown) */
+.ai-markdown p {
+  margin-top: 0;
+  margin-bottom: 12px; /* Mengurangi jarak antar paragraf */
+}
+
+.ai-markdown p:last-child {
+  margin-bottom: 0; /* Menghilangkan spasi ekstra di akhir teks */
+}
+
+.ai-markdown ul, .ai-markdown ol {
+  margin-top: 0;
+  margin-bottom: 14px;
+  padding-left: 20px; /* Merapikan indentasi bullet point */
+}
+
+.ai-markdown li {
+  margin-bottom: 6px; /* Jarak antar item di dalam list */
+}
